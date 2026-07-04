@@ -6,12 +6,19 @@
     "frontend"
   ],
   "scripts": {
+    "start": "node server.js",
+    "seed:demo": "node scripts/demo_data.js --users=30 --days=30",
+    "smoke": "node scripts/smoke_test.js",
     "backend:build": "mvn -f backend/pom.xml clean test",
     "frontend:build": "npm --prefix frontend run build",
     "dev": "npm run backend:build",
     "test": "npm run backend:build && npm run frontend:build"
   },
   "dependencies": {
-    "express": "^5.2.1"
+    "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.6",
+    "express": "^4.18.2",
+    "express-session": "^1.17.3",
+    "sql.js": "^1.8.0"
   }
 }

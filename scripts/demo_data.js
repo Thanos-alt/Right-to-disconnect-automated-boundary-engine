@@ -35,19 +35,25 @@ async function main() {
   const salt = bcrypt.genSaltSync(10);
   const hashed = bcrypt.hashSync('employee123', salt);
 
+  const departments = ['SOET', 'SOBAS', 'SOMS', 'SOLT', 'Finance', 'Registrar Office'];
+
   // Insert demo users
   for (let i = 0; i < usersCount; i++) {
     const name = names[i % names.length] + (i >= names.length ? ('_' + (i+1)) : '');
-    const email = `${name.toLowerCase().replace(/[^a-z0-9]/g,'')}${i}@demo.local`;
+    const email = `${name.toLowerCase().replace(/[^a-z0-9]/g,'')}${i}@adamasuniversity.ac.in`;
+    const role = (i % 3 === 0) ? 'student_worker' : 'employee'; // 33% student workers
+    const dept = departments[i % departments.length];
+    const classHrs = role === 'student_worker' ? '10:00-12:00,14:00-16:00' : '';
     try {
-      db.run(`INSERT INTO users (name, email, password, role, shiftStart, shiftEnd, paidLeaveBalance, sickLeaveBalance) VALUES (?, ?, ?, 'employee', '09:00', '18:00', ?, ?);`, [name, email, hashed, 12, 8]);
+      db.run(`INSERT INTO users (name, email, password, role, shiftStart, shiftEnd, paidLeaveBalance, sickLeaveBalance, department, classHours) VALUES (?, ?, ?, ?, '09:00', '18:00', ?, ?, ?, ?);`, 
+        [name, email, hashed, role, 12, 8, dept, classHrs]);
     } catch (e) {
       // ignore unique errors
     }
   }
 
   // Pull all user ids
-  const stmtUsers = db.prepare('SELECT id, shiftStart, shiftEnd FROM users WHERE role = "employee";');
+  const stmtUsers = db.prepare('SELECT id, shiftStart, shiftEnd FROM users WHERE role IN ("employee", "student_worker");');
   const userRows = [];
   while (stmtUsers.step()) userRows.push(stmtUsers.getAsObject());
   stmtUsers.free && stmtUsers.free();

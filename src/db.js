@@ -26,11 +26,13 @@ function createSchema(db) {
       name TEXT NOT NULL,
       email TEXT NOT NULL UNIQUE,
       password TEXT NOT NULL,
-      role TEXT NOT NULL CHECK(role IN ('admin','employee')),
+      role TEXT NOT NULL CHECK(role IN ('admin','employee','student_worker')),
       shiftStart TEXT NOT NULL DEFAULT '09:00',
       shiftEnd TEXT NOT NULL DEFAULT '18:00',
       paidLeaveBalance INTEGER NOT NULL DEFAULT 12,
-      sickLeaveBalance INTEGER NOT NULL DEFAULT 8
+      sickLeaveBalance INTEGER NOT NULL DEFAULT 8,
+      department TEXT NOT NULL DEFAULT 'General',
+      classHours TEXT NOT NULL DEFAULT ''
     );
 
     CREATE TABLE attendance (
@@ -86,8 +88,9 @@ function createSchema(db) {
   const adminPassword = bcrypt.hashSync('admin123', salt);
   const employeePassword = bcrypt.hashSync('employee123', salt);
 
-  db.run(`INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?);`, ['Admin User', 'admin@boundaryhrms.com', adminPassword, 'admin']);
-  db.run(`INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?);`, ['Employee User', 'employee@boundaryhrms.com', employeePassword, 'employee']);
+  db.run(`INSERT INTO users (name, email, password, role, department) VALUES (?, ?, ?, ?, ?);`, ['HR Admin', 'hr@adamasuniversity.ac.in', adminPassword, 'admin', 'Registrar Office']);
+  db.run(`INSERT INTO users (name, email, password, role, department) VALUES (?, ?, ?, ?, ?);`, ['Professor Sayan', 'faculty@adamasuniversity.ac.in', employeePassword, 'employee', 'SOET']);
+  db.run(`INSERT INTO users (name, email, password, role, department, classHours) VALUES (?, ?, ?, ?, ?, ?);`, ['Student TA Pronab', 'student_ta@adamasuniversity.ac.in', employeePassword, 'student_worker', 'SOET', '10:00-12:00,14:00-16:00']);
 }
 
 function saveDb(db) {

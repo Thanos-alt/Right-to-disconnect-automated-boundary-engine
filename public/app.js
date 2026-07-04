@@ -93,6 +93,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('signupForm').addEventListener('submit', handleSignup);
   
   // Toggles between login/signup
+  document.getElementById('signupRole').addEventListener('change', (e) => {
+    const group = document.getElementById('signupClassHoursGroup');
+    if (e.target.value === 'student_worker') {
+      group.classList.remove('hidden');
+    } else {
+      group.classList.add('hidden');
+    }
+  });
   document.getElementById('toggleSignup').addEventListener('click', (e) => {
     e.preventDefault();
     document.getElementById('loginForm').classList.add('hidden');
@@ -314,6 +322,8 @@ async function handleSignup(e) {
   const email = document.getElementById('signupEmail').value.trim();
   const password = document.getElementById('signupPassword').value.trim();
   const role = document.getElementById('signupRole').value;
+  const department = document.getElementById('signupDept').value;
+  const classHours = document.getElementById('signupClassHours').value.trim();
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   let hasError = false;
@@ -338,7 +348,7 @@ async function handleSignup(e) {
     const res = await fetch('/api/signup', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email, password, role })
+      body: JSON.stringify({ name, email, password, role, department, classHours })
     });
     const data = await res.json();
     if (res.ok) {
@@ -612,11 +622,13 @@ async function loadEmployeesDirectory() {
     
     let html = '';
     state.employees.forEach(emp => {
+      const roleLabel = emp.role === 'student_worker' ? 'Student Worker' : emp.role === 'employee' ? 'Faculty / Staff' : emp.role;
       html += `
         <tr>
           <td>#${emp.id}</td>
           <td><strong>${emp.name}</strong></td>
           <td>${emp.email}</td>
+          <td><span class="badge badge-delivered">${emp.department || 'General'}</span> <br><small class="text-secondary" style="text-transform:capitalize;">${roleLabel}</small></td>
           <td><span class="font-mono">${emp.shiftStart} - ${emp.shiftEnd}</span></td>
           <td><span class="badge badge-delivered">${emp.paidLeaveBalance} Paid</span> <span class="badge badge-pending">${emp.sickLeaveBalance} Sick</span></td>
           <td>
@@ -1003,6 +1015,17 @@ function openEditEmployee(id) {
   document.getElementById('editShiftEnd').value = emp.shiftEnd;
   document.getElementById('editPaidBalance').value = emp.paidLeaveBalance;
   document.getElementById('editSickBalance').value = emp.sickLeaveBalance;
+  document.getElementById('editDepartment').value = emp.department || 'General';
+  
+  const classHrsInput = document.getElementById('editClassHours');
+  classHrsInput.value = emp.classHours || '';
+  if (emp.role === 'student_worker') {
+    classHrsInput.disabled = false;
+    classHrsInput.classList.remove('input-disabled');
+  } else {
+    classHrsInput.disabled = true;
+    classHrsInput.classList.add('input-disabled');
+  }
 
   toggleModal('employeeModal', true);
 }
@@ -1015,6 +1038,8 @@ async function handleSaveEmployeeSettings(e) {
   const shiftEnd = document.getElementById('editShiftEnd').value.trim();
   const paidLeaveBalance = document.getElementById('editPaidBalance').value;
   const sickLeaveBalance = document.getElementById('editSickBalance').value;
+  const department = document.getElementById('editDepartment').value;
+  const classHours = document.getElementById('editClassHours').value.trim();
 
   // Time format regex check (HH:MM)
   const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
@@ -1029,7 +1054,7 @@ async function handleSaveEmployeeSettings(e) {
     const res = await fetch('/api/admin/employees/update', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, shiftStart, shiftEnd, paidLeaveBalance, sickLeaveBalance })
+      body: JSON.stringify({ userId, shiftStart, shiftEnd, paidLeaveBalance, sickLeaveBalance, department, classHours })
     });
     const data = await res.json();
     if (res.ok) {

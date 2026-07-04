@@ -26,6 +26,20 @@ function isOutsideShift(shiftStart, shiftEnd, time) {
   return time < shiftStart || time > shiftEnd;
 }
 
+function isDuringClassHours(classHoursStr, time) {
+  if (!classHoursStr || !time) return false;
+  const ranges = classHoursStr.split(',');
+  for (const range of ranges) {
+    const [start, end] = range.split('-');
+    if (start && end) {
+      if (time >= start.trim() && time <= end.trim()) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 function applyLeaveApproval(db, leave, adminId) {
   const start = new Date(leave.startDate);
   const end = new Date(leave.endDate);
@@ -83,7 +97,7 @@ async function getUserById(db, id) {
 }
 
 router.post('/signup', async (req, res) => {
-  const { name, email, password, role } = req.body;
+  const { name, email, password, role, department, classHours } = req.body;
   if (!name || !email || !password || !role) {
     return res.status(400).json({ error: 'All fields (name, email, password, role) are required' });
   }
@@ -99,7 +113,7 @@ router.post('/signup', async (req, res) => {
     return res.status(400).json({ error: 'Password must be at least 6 characters long' });
   }
 
-  if (!['admin', 'employee'].includes(role)) {
+  if (!['admin', 'employee', 'student_worker'].includes(role)) {
     return res.status(400).json({ error: 'Invalid role selection' });
   }
 
@@ -113,8 +127,8 @@ router.post('/signup', async (req, res) => {
   const hashedPassword = bcrypt.hashSync(password, salt);
 
   try {
-    db.run('INSERT INTO users (name, email, password, role, shiftStart, shiftEnd, paidLeaveBalance, sickLeaveBalance) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [name, email, hashedPassword, role, '09:00', '18:00', 12, 8]);
+    db.run('INSERT INTO users (name, email, password, role, shiftStart, shiftEnd, paidLeaveBalance, sickLeaveBalance, department, classHours) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [name, email, hashedPassword, role, '09:00', '18:00', 12, 8, department || 'General', classHours || '']);
     saveDb(db);
     res.json({ message: 'User registered successfully. You can now log in.' });
   } catch (err) {
@@ -156,7 +170,7 @@ router.use(async (req, res, next) => {
 });
 
 router.get('/me', async (req, res) => {
-  res.json({ user: { id: req.user.id, name: req.user.name, email: req.user.email, role: req.user.role, shiftStart: req.user.shiftStart, shiftEnd: req.user.shiftEnd } });
+  res.json({ user: { id: req.user.id, name: req.user.name, email: req.user.email, role: req.user.role, shiftStart: req.user.shiftStart, shiftEnd: req.user.shiftEnd, department: req.user.department, classHours: req.user.classHours } });
 });
 
 router.post('/attendance/checkin', async (req, res) => {
@@ -289,7 +303,14 @@ router.post('/admin/leaves/:id/approve', async (req, res) => {
   targetUserStmt.free();
 
   const time = currentTime();
-  const outside = isOutsideShift(targetUser.shiftStart, targetUser.shiftEnd, time);
+  let outside = isOutsideShift(targetUser.shiftStart, targetUser.shiftEnd, time);
+  let classConflict = false;
+  if (targetUser.role === 'student_worker') {
+    classConflict = isDuringClassHours(targetUser.classHours, time);
+    if (classConflict) {
+      outside = true;
+    }
+  }
   const bypass = req.body.emergencyBypass || false;
 
   if (outside && !bypass) {
@@ -299,12 +320,19 @@ router.post('/admin/leaves/:id/approve', async (req, res) => {
       shiftStartDate.setDate(shiftStartDate.getDate() + 1);
     }
     const deliverAt = `${shiftStartDate.toISOString().slice(0, 10)} ${targetUser.shiftStart}`;
+    
+    const reason = classConflict 
+      ? `Queued leave approval ${leaveId} (Class Hour Conflict)` 
+      : `Queued leave approval ${leaveId}`;
+      
     db.run('INSERT INTO queued_actions (targetUserId, actionType, payload, requestedBy, requestedAt, deliverAt, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
       [targetUser.id, 'approve_leave', JSON.stringify({ leaveId }), req.user.id, new Date().toISOString(), deliverAt, 'Queued']);
     db.run('INSERT INTO compliance_logs (userId, action, actionAt, allowedAt, outsideShift) VALUES (?, ?, ?, ?, ?)',
-      [targetUser.id, `Queued leave approval ${leaveId}`, new Date().toISOString(), `${currentDate()} ${targetUser.shiftStart}`, 1]);
+      [targetUser.id, reason, new Date().toISOString(), `${currentDate()} ${targetUser.shiftStart}`, 1]);
     saveDb(db);
-    return res.json({ message: 'Leave approval queued until next shift start due to out-of-hours action.' });
+    return res.json({ message: classConflict 
+      ? 'Leave approval queued until next shift start due to class hour conflict.' 
+      : 'Leave approval queued until next shift start due to out-of-hours action.' });
   }
 
   applyLeaveApproval(db, leave, req.user.id);
@@ -338,7 +366,14 @@ router.post('/admin/leaves/:id/reject', async (req, res) => {
   targetUserStmt.free();
 
   const time = currentTime();
-  const outside = isOutsideShift(targetUser.shiftStart, targetUser.shiftEnd, time);
+  let outside = isOutsideShift(targetUser.shiftStart, targetUser.shiftEnd, time);
+  let classConflict = false;
+  if (targetUser.role === 'student_worker') {
+    classConflict = isDuringClassHours(targetUser.classHours, time);
+    if (classConflict) {
+      outside = true;
+    }
+  }
   const bypass = req.body.emergencyBypass || false;
 
   if (outside && !bypass) {
@@ -348,12 +383,19 @@ router.post('/admin/leaves/:id/reject', async (req, res) => {
       shiftStartDate.setDate(shiftStartDate.getDate() + 1);
     }
     const deliverAt = `${shiftStartDate.toISOString().slice(0, 10)} ${targetUser.shiftStart}`;
+    
+    const reason = classConflict 
+      ? `Queued leave rejection ${leaveId} (Class Hour Conflict)` 
+      : `Queued leave rejection ${leaveId}`;
+      
     db.run('INSERT INTO queued_actions (targetUserId, actionType, payload, requestedBy, requestedAt, deliverAt, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
       [targetUser.id, 'reject_leave', JSON.stringify({ leaveId }), req.user.id, new Date().toISOString(), deliverAt, 'Queued']);
     db.run('INSERT INTO compliance_logs (userId, action, actionAt, allowedAt, outsideShift) VALUES (?, ?, ?, ?, ?)',
-      [targetUser.id, `Queued leave rejection ${leaveId}`, new Date().toISOString(), `${currentDate()} ${targetUser.shiftStart}`, 1]);
+      [targetUser.id, reason, new Date().toISOString(), `${currentDate()} ${targetUser.shiftStart}`, 1]);
     saveDb(db);
-    return res.json({ message: 'Leave rejection queued until next shift start due to out-of-hours action.' });
+    return res.json({ message: classConflict 
+      ? 'Leave rejection queued until next shift start due to class hour conflict.' 
+      : 'Leave rejection queued until next shift start due to out-of-hours action.' });
   }
 
   db.run("UPDATE leaves SET status = 'Rejected', approvedAt = ?, approvedBy = ? WHERE id = ?", [new Date().toISOString(), req.user.id, leaveId]);
@@ -366,7 +408,7 @@ router.post('/admin/leaves/:id/reject', async (req, res) => {
 router.get('/admin/employees', async (req, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
   const db = await dbPromise();
-  const stmt = db.prepare('SELECT id, name, email, role, shiftStart, shiftEnd, paidLeaveBalance, sickLeaveBalance FROM users ORDER BY id ASC');
+  const stmt = db.prepare('SELECT id, name, email, role, shiftStart, shiftEnd, paidLeaveBalance, sickLeaveBalance, department, classHours FROM users ORDER BY id ASC');
   const employees = [];
   while (stmt.step()) {
     employees.push(stmt.getAsObject());
@@ -379,7 +421,7 @@ router.get('/admin/users', async (req, res) => {
   // Alias for admin employee listing
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
   const db = await dbPromise();
-  const stmt = db.prepare('SELECT id, name, email, role, shiftStart, shiftEnd, paidLeaveBalance, sickLeaveBalance FROM users ORDER BY id ASC');
+  const stmt = db.prepare('SELECT id, name, email, role, shiftStart, shiftEnd, paidLeaveBalance, sickLeaveBalance, department, classHours FROM users ORDER BY id ASC');
   const employees = [];
   while (stmt.step()) {
     employees.push(stmt.getAsObject());
@@ -392,7 +434,7 @@ router.get('/users', async (req, res) => {
   // Admin-only alias for users list
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
   const db = await dbPromise();
-  const stmt = db.prepare('SELECT id, name, email, role, shiftStart, shiftEnd, paidLeaveBalance, sickLeaveBalance FROM users ORDER BY id ASC');
+  const stmt = db.prepare('SELECT id, name, email, role, shiftStart, shiftEnd, paidLeaveBalance, sickLeaveBalance, department, classHours FROM users ORDER BY id ASC');
   const users = [];
   while (stmt.step()) {
     users.push(stmt.getAsObject());
@@ -494,8 +536,9 @@ router.post('/admin/import/users', async (req, res) => {
 
     const hashed = bcrypt.hashSync(rawPassword, salt);
     try {
-      db.run('INSERT INTO users (name, email, password, role, shiftStart, shiftEnd, paidLeaveBalance, sickLeaveBalance) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        [name, email, hashed, role === 'admin' ? 'admin' : 'employee', String(r.shiftStart || '09:00'), String(r.shiftEnd || '18:00'), Number(r.paidLeaveBalance || 12), Number(r.sickLeaveBalance || 8)]);
+      const finalRole = ['admin', 'employee', 'student_worker'].includes(role) ? role : 'employee';
+      db.run('INSERT INTO users (name, email, password, role, shiftStart, shiftEnd, paidLeaveBalance, sickLeaveBalance, department, classHours) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [name, email, hashed, finalRole, String(r.shiftStart || '09:00'), String(r.shiftEnd || '18:00'), Number(r.paidLeaveBalance || 12), Number(r.sickLeaveBalance || 8), String(r.department || 'General'), String(r.classHours || '')]);
       report.added++;
     } catch (e) {
       report.skipped++;
@@ -508,7 +551,7 @@ router.post('/admin/import/users', async (req, res) => {
 
 router.post('/admin/employees/update', async (req, res) => {
   if (req.user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
-  const { userId, shiftStart, shiftEnd, paidLeaveBalance, sickLeaveBalance } = req.body;
+  const { userId, shiftStart, shiftEnd, paidLeaveBalance, sickLeaveBalance, department, classHours } = req.body;
   if (!userId || !shiftStart || !shiftEnd) {
     return res.status(400).json({ error: 'User ID, shift start, and shift end are required' });
   }
@@ -519,8 +562,8 @@ router.post('/admin/employees/update', async (req, res) => {
   }
 
   const db = await dbPromise();
-  db.run('UPDATE users SET shiftStart = ?, shiftEnd = ?, paidLeaveBalance = ?, sickLeaveBalance = ? WHERE id = ?',
-    [shiftStart, shiftEnd, Number(paidLeaveBalance || 0), Number(sickLeaveBalance || 0), Number(userId)]);
+  db.run('UPDATE users SET shiftStart = ?, shiftEnd = ?, paidLeaveBalance = ?, sickLeaveBalance = ?, department = ?, classHours = ? WHERE id = ?',
+    [shiftStart, shiftEnd, Number(paidLeaveBalance || 0), Number(sickLeaveBalance || 0), department || 'General', classHours || '', Number(userId)]);
   saveDb(db);
   res.json({ message: 'Employee configuration updated successfully' });
 });
