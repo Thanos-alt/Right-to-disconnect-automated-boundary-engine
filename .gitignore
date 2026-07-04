@@ -9,6 +9,12 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
+data.db
+.vscode/
+node_modules/
+*.log
+.DS_Store
+
 # Python
 __pycache__/
 *.py[cod]

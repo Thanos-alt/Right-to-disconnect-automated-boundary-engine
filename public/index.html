@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Antigravity HRMS - Smart Attendance + Compliance</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="antigravity-footer.css">
+</head>
+<body>
+
+  <!-- Loading Overlay -->
+  <div id="loadingOverlay" class="loading-overlay hidden">
+    <div class="spinner"></div>
+    <p>Processing request...</p>
+  </div>
+
+  <!-- Notification Banner -->
+  <div id="notification" class="notification hidden">
+    <div class="notification-content">
+      <span id="notificationMessage">Action completed successfully!</span>
+      <button id="notificationClose">&times;</button>
+    </div>
+  </div>
+
+  <!-- Main Container -->
+  <div id="appContainer">
+
+    <!-- AUTH SECTION (Login / Signup) -->
+    <div id="authSection" class="auth-section">
+      <div class="auth-card">
+        <div class="auth-header">
+          <div class="logo">Antigravity <span>HRMS</span></div>
+          <div class="brand-tag">Built by Antigravity</div>
+          <p id="authSubtitle">Right-to-Disconnect Compliant Workspace</p>
+        </div>
+
+        <!-- Login Form -->
+        <form id="loginForm" class="auth-form">
+          <h2>Welcome Back</h2>
+          <div class="form-group">
+            <label for="loginEmail">Email Address</label>
+            <input type="email" id="loginEmail" placeholder="e.g. admin@boundaryhrms.com" required>
+            <span class="error-msg" id="loginEmailError"></span>
+          </div>
+          <div class="form-group">
+            <label for="loginPassword">Password</label>
+            <input type="password" id="loginPassword" placeholder="••••••••" required>
+            <span class="error-msg" id="loginPasswordError"></span>
+          </div>
+          <button type="submit" class="btn btn-primary" id="loginSubmitBtn">Sign In</button>
+          <p class="auth-toggle">Don't have an account? <a href="#" id="toggleSignup">Create one here</a></p>
+        </form>
+
+        <!-- Signup Form (Hidden initially) -->
+        <form id="signupForm" class="auth-form hidden">
+          <h2>Create Account</h2>
+          <div class="form-group">
+            <label for="signupName">Full Name</label>
+            <input type="text" id="signupName" placeholder="e.g. Deep Halder" required>
+            <span class="error-msg" id="signupNameError"></span>
+          </div>
+          <div class="form-group">
+            <label for="signupEmail">Email Address</label>
+            <input type="email" id="signupEmail" placeholder="e.g. developer@boundaryhrms.com" required>
+            <span class="error-msg" id="signupEmailError"></span>
+          </div>
+          <div class="form-group">
+            <label for="signupPassword">Password</label>
+            <input type="password" id="signupPassword" placeholder="At least 6 characters" required>
+            <span class="error-msg" id="signupPasswordError"></span>
+          </div>
+          <div class="form-group">
+            <label for="signupRole">Workspace Role</label>
+            <select id="signupRole" required>
+              <option value="employee" selected>Employee (Standard Access)</option>
+              <option value="admin">Administrator (Full Controls)</option>
+            </select>
+            <span class="error-msg" id="signupRoleError"></span>
+          </div>
+          <button type="submit" class="btn btn-primary" id="signupSubmitBtn">Sign Up</button>
+          <p class="auth-toggle">Already registered? <a href="#" id="toggleLogin">Sign in here</a></p>
+        </form>
+      </div>
+    </div>
+
+    <!-- MAIN APPLICATION SECTION (Hidden initially) -->
+    <div id="mainDashboard" class="main-dashboard hidden">
+      
+      <!-- Top Navigation Header -->
+      <header class="dashboard-header">
+        <div class="header-logo">
+          <div class="logo">Antigravity <span>HRMS</span></div>
+          <div class="sub">Smart attendance, compliance, and boundary automation</div>
+        </div>
+
+        <!-- Right-to-Disconnect Active Status Banner -->
+        <div id="disconnectBanner" class="disconnect-banner in-shift">
+          <span class="indicator-dot"></span>
+          <span id="disconnectStatusText">Active: In Shift Hours</span>
+        </div>
+
+        <div class="user-profile-widget">
+          <div class="user-info">
+            <span id="userName" class="user-name">Loading...</span>
+            <span id="userRole" class="user-role">Employee</span>
+          </div>
+          <button id="logoutBtn" class="btn btn-outline btn-sm">Logout</button>
+        </div>
+      </header>
+
+      <!-- Layout Container -->
+      <div class="dashboard-layout">
+        
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+          <nav class="sidebar-nav">
+            <a href="#" class="nav-item active" data-tab="dashboard">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect><rect x="14" y="12" width="7" height="9"></rect><rect x="3" y="16" width="7" height="5"></rect></svg>
+              <span>Overview</span>
+            </a>
+            <a href="#" class="nav-item" data-tab="attendance">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+              <span>Attendance</span>
+            </a>
+            <a href="#" class="nav-item" data-tab="leaves">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+              <span>Leave Requests</span>
+            </a>
+            <a href="#" class="nav-item admin-only hidden" data-tab="employees">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+              <span>Employees</span>
+            </a>
+            <a href="#" class="nav-item admin-only hidden" data-tab="compliance">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+              <span>Compliance Center</span>
+            </a>
+          </nav>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="content-area">
+
+          <!-- TAB: OVERVIEW / DASHBOARD -->
+          <div id="tab-dashboard" class="tab-pane active">
+            <div class="welcome-banner">
+              <h1>Hello, <span id="welcomeUserName">User</span>!</h1>
+              <p>Here is your workplace summary for today.</p>
+            </div>
+
+            <!-- Dashboard Stats Grid -->
+            <div class="stats-grid">
+              
+              <!-- Check-In/Out Card -->
+              <div class="card checkin-card">
+                <h3>Today's Attendance</h3>
+                <div class="checkin-status">
+                  <p class="status-label">Status: <strong id="todayStatusText">Not Checked In</strong></p>
+                  <p class="time-label" id="todayTimeText">--:--</p>
+                </div>
+                <div class="checkin-actions">
+                  <button id="checkInBtn" class="btn btn-success w-full">Check In</button>
+                  <button id="checkOutBtn" class="btn btn-danger w-full hidden">Check Out</button>
+                </div>
+              </div>
+
+              <!-- Leave Balance Card -->
+              <div class="card balance-card">
+                <h3>Remaining Leave Days</h3>
+                <div class="balance-gauges">
+                  <div class="gauge-item">
+                    <div class="gauge-ring" id="paidGaugeRing">
+                      <svg width="80" height="80">
+                        <circle class="bg" cx="40" cy="40" r="34"></circle>
+                        <circle class="val" id="paidGaugeCircle" cx="40" cy="40" r="34" stroke-dasharray="213.6" stroke-dashoffset="213.6"></circle>
+                      </svg>
+                      <span class="value" id="paidBalanceText">12</span>
+                    </div>
+                    <span class="label">Paid Leave</span>
+                  </div>
+
+                  <div class="gauge-item">
+                    <div class="gauge-ring" id="sickGaugeRing">
+                      <svg width="80" height="80">
+                        <circle class="bg" cx="40" cy="40" r="34"></circle>
+                        <circle class="val" id="sickGaugeCircle" cx="40" cy="40" r="34" stroke-dasharray="213.6" stroke-dashoffset="213.6"></circle>
+                      </svg>
+                      <span class="value" id="sickBalanceText">8</span>
+                    </div>
+                    <span class="label">Sick Leave</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Shift Boundary Card -->
+              <div class="card boundary-card">
+                <h3>Your Shift Schedule</h3>
+                <div class="boundary-schedule">
+                  <div class="time-block">
+                    <span class="label">Start Time</span>
+                    <span class="value" id="empShiftStart">09:00</span>
+                  </div>
+                  <div class="divider-arrow">&rarr;</div>
+                  <div class="time-block">
+                    <span class="label">End Time</span>
+                    <span class="value" id="empShiftEnd">18:00</span>
+                  </div>
+                </div>
+                <div class="boundary-hint">
+                  <p>Actions performed outside these hours will trigger right-to-disconnect queues.</p>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- Recent Activity / Leaves Preview -->
+            <div class="dashboard-rows">
+              <div class="card flex-1">
+                <h3>My Recent Leaves</h3>
+                <div class="table-container">
+                  <table class="data-table">
+                    <thead>
+                      <tr>
+                        <th>Dates</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th>Requested</th>
+                      </tr>
+                    </thead>
+                    <tbody id="myLeavesPreview">
+                      <tr>
+                        <td colspan="4" class="text-center">No leaves requested yet.</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB: ATTENDANCE LOGS -->
+          <div id="tab-attendance" class="tab-pane">
+            <div class="card">
+              <div class="card-header">
+                <h2>Attendance Logs</h2>
+                <div class="actions">
+                  <!-- Option to check-in/out from this page too -->
+                </div>
+              </div>
+              <div class="table-container">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Employee</th>
+                      <th>Date</th>
+                      <th>Check In</th>
+                      <th>Check Out</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody id="attendanceLogsTable">
+                    <tr>
+                      <td colspan="5" class="text-center">Loading logs...</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB: LEAVES MANAGEMENT -->
+          <div id="tab-leaves" class="tab-pane">
+            
+            <div class="leaves-layout">
+              <!-- Apply Leave Form -->
+              <div class="card leaves-form-card">
+                <h2>Apply for Leave</h2>
+                <form id="applyLeaveForm">
+                  <div class="form-row">
+                    <div class="form-group flex-1">
+                      <label for="leaveStartDate">Start Date</label>
+                      <input type="date" id="leaveStartDate" required>
+                    </div>
+                    <div class="form-group flex-1">
+                      <label for="leaveEndDate">End Date</label>
+                      <input type="date" id="leaveEndDate" required>
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label for="leaveType">Leave Type</label>
+                    <select id="leaveType" required>
+                      <option value="Paid" selected>Paid Leave</option>
+                      <option value="Sick">Sick Leave</option>
+                      <option value="Unpaid">Unpaid Leave</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label for="leaveReason">Reason / Remarks</label>
+                    <textarea id="leaveReason" rows="3" placeholder="Explain the reason for leave..." required></textarea>
+                  </div>
+                  <button type="submit" class="btn btn-primary w-full" id="applyLeaveBtn">Submit Application</button>
+                </form>
+              </div>
+
+              <!-- My Requests List -->
+              <div class="card leaves-list-card flex-1">
+                <h2>All Leave Records</h2>
+                <div class="table-container">
+                  <table class="data-table">
+                    <thead>
+                      <tr>
+                        <th>Employee</th>
+                        <th>Dates</th>
+                        <th>Type</th>
+                        <th>Reason</th>
+                        <th>Status</th>
+                        <th class="admin-only hidden">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody id="leavesTableBody">
+                      <tr>
+                        <td colspan="6" class="text-center">Loading leave requests...</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- TAB: EMPLOYEES DIRECTORY (ADMIN ONLY) -->
+          <div id="tab-employees" class="tab-pane">
+            <div class="card">
+              <h2>Employee Directory & Configurations</h2>
+                <p class="subtitle">Update shift hours and edit paid/sick leave balances.</p>
+                <div class="card-actions admin-only hidden" style="margin-top:8px;">
+                  <button id="exportEmployeesBtn" class="btn btn-outline btn-sm">Export Employees CSV</button>
+                  <button id="exportAttendanceBtn" class="btn btn-outline btn-sm">Export Attendance CSV</button>
+                  <label class="import-label">Import Users (CSV):
+                    <input id="importUsersFile" type="file" accept=".csv" style="display:inline-block;margin-left:8px;">
+                  </label>
+                  <button id="importUsersBtn" class="btn btn-primary btn-sm">Upload CSV</button>
+                </div>
+              <div class="table-container">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Name</th>
+                      <th>Email</th>
+                      <th>Shift Hours</th>
+                      <th>Leave Balances (Paid/Sick)</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="employeeDirectoryTable">
+                    <tr>
+                      <td colspan="6" class="text-center">Loading employee records...</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB: COMPLIANCE CENTER (ADMIN ONLY) -->
+          <div id="tab-compliance" class="tab-pane">
+            
+            <!-- Compliance Metrics Row -->
+            <div class="compliance-metrics-row">
+              
+              <!-- Compliance Score Card -->
+              <div class="card compliance-score-card">
+                <h3>Work-Hour Compliance Score</h3>
+                <div class="score-display">
+                  <div class="score-gauge">
+                    <svg width="120" height="120">
+                      <circle class="bg" cx="60" cy="60" r="50"></circle>
+                      <circle class="val" id="complianceScoreCircle" cx="60" cy="60" r="50" stroke-dasharray="314" stroke-dashoffset="314"></circle>
+                    </svg>
+                    <span class="value" id="complianceScoreVal">100%</span>
+                  </div>
+                  <div class="score-desc">
+                    <p>Percent of admin decisions executed within employee contract hours.</p>
+                    <p class="hint">Out-of-shift actions lower this score unless completed via queue delivery.</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Quick Statistics charts (Visual SVG Analytics) -->
+              <div class="card compliance-chart-card">
+                <h3>Work Distribution Analytics</h3>
+                <div class="analytics-charts">
+                  <!-- Attendance SVG Chart -->
+                  <div class="svg-chart-container">
+                    <p class="chart-title">Last 7 Days Attendance Trend</p>
+                    <div id="attendanceChartContainer">
+                      <!-- SVG will be dynamically generated by JS -->
+                    </div>
+                  </div>
+
+                  <!-- Leave Distribution SVG Chart -->
+                  <div class="svg-chart-container">
+                    <p class="chart-title">Approved Leave Distribution</p>
+                    <div id="leaveChartContainer">
+                      <!-- SVG will be dynamically generated by JS -->
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- Queue Simulator Section -->
+            <div class="compliance-simulator-panel card">
+              <div class="panel-header">
+                <div>
+                  <h2>Right-to-Disconnect Queue Simulator</h2>
+                  <p class="subtitle">Admin requests processed outside employee hours are held here until their next shift starts.</p>
+                </div>
+                <button id="simulateShiftBtn" class="btn btn-warning">Simulate Shift Start & Deliver</button>
+              </div>
+
+              <div class="table-container">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Action ID</th>
+                      <th>Target Employee</th>
+                      <th>Action Type</th>
+                      <th>Queued At</th>
+                      <th>Scheduled Delivery</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody id="queuedActionsTable">
+                    <tr>
+                      <td colspan="6" class="text-center">No queued actions pending.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Compliance Logs Section -->
+            <div class="card">
+              <h2>Compliance Audit Trail</h2>
+              <p class="subtitle">History of all compliance incidents, queued dispatches, and emergency bypasses.</p>
+              <div class="table-container">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Timestamp</th>
+                      <th>Employee</th>
+                      <th>Logged Event</th>
+                      <th>Target Schedule</th>
+                      <th>Boundary Breach</th>
+                    </tr>
+                  </thead>
+                  <tbody id="complianceLogsTable">
+                    <tr>
+                      <td colspan="5" class="text-center">No logs generated yet.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+
+        </main>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- Admin Approval Warning Modal -->
+  <div id="bypassModal" class="modal hidden">
+    <div class="modal-content glass">
+      <div class="modal-header">
+        <h3>⚠️ Right-to-Disconnect Boundary Breach</h3>
+        <span class="close-modal" id="closeBypassModal">&times;</span>
+      </div>
+      <div class="modal-body">
+        <p>This employee is currently <strong>outside of their shift hours</strong>. Executing this action immediately violates compliance policies.</p>
+        
+        <div class="modal-info">
+          <p><strong>Employee:</strong> <span id="modalEmployeeName">John Doe</span></p>
+          <p><strong>Active Schedule:</strong> <span id="modalEmployeeHours">09:00 - 18:00</span></p>
+          <p><strong>Action:</strong> <span id="modalActionType">Approve Leave</span></p>
+        </div>
+
+        <p>Choose how to proceed:</p>
+      </div>
+      <div class="modal-footer">
+        <button id="queueActionBtn" class="btn btn-warning flex-1">Queue for Shift Start (Recommended)</button>
+        <button id="bypassActionBtn" class="btn btn-outline-danger flex-1">Emergency Bypass (Breach Compliance)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Employee Update Modal -->
+  <div id="employeeModal" class="modal hidden">
+    <div class="modal-content glass">
+      <div class="modal-header">
+        <h3>Edit Employee Contract Settings</h3>
+        <span class="close-modal" id="closeEmployeeModal">&times;</span>
+      </div>
+      <form id="editEmployeeForm">
+        <div class="modal-body">
+          <input type="hidden" id="editUserId">
+          <div class="form-group">
+            <label>Name</label>
+            <input type="text" id="editUserName" disabled class="input-disabled">
+          </div>
+          <div class="form-row">
+            <div class="form-group flex-1">
+              <label for="editShiftStart">Shift Start (HH:MM)</label>
+              <input type="text" id="editShiftStart" placeholder="09:00" required>
+            </div>
+            <div class="form-group flex-1">
+              <label for="editShiftEnd">Shift End (HH:MM)</label>
+              <input type="text" id="editShiftEnd" placeholder="18:00" required>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group flex-1">
+              <label for="editPaidBalance">Paid Leave Balance</label>
+              <input type="number" id="editPaidBalance" min="0" required>
+            </div>
+            <div class="form-group flex-1">
+              <label for="editSickBalance">Sick Leave Balance</label>
+              <input type="number" id="editSickBalance" min="0" required>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" id="cancelEmployeeEdit">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="saveEmployeeBtn">Save Settings</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
