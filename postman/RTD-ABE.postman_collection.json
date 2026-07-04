@@ -1,0 +1,92 @@
+{
+  "info": {
+    "name": "RTD-ABE API Collection",
+    "_postman_id": "d1b8c4ad-6fd3-4cb8-9d1c-abe000000001",
+    "description": "Starter Postman collection for the Right to Disconnect Automated Boundary Engine.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8080/api/system/health",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["api", "system", "health"]
+        }
+      }
+    },
+    {
+      "name": "Login",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"username\": \"admin@company.com\",\n  \"password\": \"Password123!\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8080/api/auth/login",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["api", "auth", "login"]
+        }
+      }
+    },
+    {
+      "name": "Create Employee",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"employeeCode\": \"101\",\n  \"fullName\": \"Ava Patel\",\n  \"email\": \"ava.patel@company.com\",\n  \"department\": \"Engineering\",\n  \"countryCode\": \"IN\",\n  \"timezone\": \"Asia/Kolkata\",\n  \"contractType\": \"Full-time\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8080/api/employees",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["api", "employees"]
+        }
+      }
+    },
+    {
+      "name": "Send Message",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"employeeCode\": \"101\",\n  \"managerId\": \"MGR-01\",\n  \"platform\": \"slack\",\n  \"subject\": \"Urgent update\",\n  \"body\": \"Please review after your shift.\",\n  \"emergencyOverride\": false\n}"
+        },
+        "url": {
+          "raw": "http://localhost:8080/api/messages",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["api", "messages"]
+        }
+      }
+    },
+    {
+      "name": "Compliance Dashboard",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:8080/api/compliance/dashboard",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "8080",
+          "path": ["api", "compliance", "dashboard"]
+        }
+      }
+    }
+  ]
+}

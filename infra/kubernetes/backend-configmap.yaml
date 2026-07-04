@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rtdabe-backend-config
+data:
+  DB_HOST: postgres
+  DB_PORT: "5432"
+  DB_NAME: rtdabe
+  REDIS_HOST: redis
+  REDIS_PORT: "6379"
+  KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+  MONGODB_URI: mongodb://mongo:27017/rtdabe
+  JWT_ISSUER_URI: http://auth-server:9000
