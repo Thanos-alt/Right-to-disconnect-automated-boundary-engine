@@ -389,6 +389,12 @@ router.get('/admin/export/:what', async (req, res) => {
       res.setHeader('Content-Type', 'text/csv');
       res.setHeader('Content-Disposition', 'attachment; filename="compliance.csv"');
       return res.send(csv);
+    } else if (what === 'employees') {
+      const execRes = db.exec('SELECT id, name, email, role, shiftStart, shiftEnd, paidLeaveBalance, sickLeaveBalance FROM users ORDER BY id ASC');
+      const csv = csvUtils.toCsvFromExec(execRes[0] || { columns: [], values: [] });
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename="employees.csv"');
+      return res.send(csv);
     }
     return res.status(400).json({ error: 'Unknown export target' });
   } catch (e) {
@@ -556,3 +562,55 @@ router.get('/dashboard/analytics', async (req, res) => {
 });
 
 module.exports = router;
+
+// Background processing for queued actions (can be called by server)
+async function processQueuedActions() {
+  const db = await dbPromise();
+  const now = new Date();
+  const stmt = db.prepare("SELECT * FROM queued_actions WHERE status = 'Queued'");
+  const actions = [];
+  while (stmt.step()) actions.push(stmt.getAsObject());
+  stmt.free();
+
+  let processed = 0;
+  for (const action of actions) {
+    try {
+      // parse deliverAt like 'YYYY-MM-DD HH:MM'
+      const deliverAt = action.deliverAt;
+      const deliverDate = new Date((deliverAt || '').replace(' ', 'T') + ':00');
+      if (isNaN(deliverDate.getTime())) {
+        // if invalid, treat as due
+      }
+      if (deliverDate > now) continue; // not yet due
+
+      const payload = JSON.parse(action.payload);
+      if (action.actionType === 'approve_leave') {
+        const leaveStmt = db.prepare('SELECT * FROM leaves WHERE id = ?');
+        leaveStmt.bind([payload.leaveId]);
+        let leave = null;
+        if (leaveStmt.step()) leave = leaveStmt.getAsObject();
+        leaveStmt.free();
+        if (leave && leave.id && leave.status === 'Pending') {
+          applyLeaveApproval(db, leave, action.requestedBy);
+          processed++;
+        }
+      } else if (action.actionType === 'reject_leave') {
+        db.run("UPDATE leaves SET status = 'Rejected', approvedAt = ?, approvedBy = ? WHERE id = ?", [new Date().toISOString(), action.requestedBy, payload.leaveId]);
+        processed++;
+      }
+
+      db.run("UPDATE queued_actions SET status = 'Delivered' WHERE id = ?", [action.id]);
+      db.run('INSERT INTO compliance_logs (userId, action, actionAt, allowedAt, outsideShift) VALUES (?, ?, ?, ?, ?)',
+        [action.targetUserId, `Delivered queued action: ${action.actionType}`, new Date().toISOString(), new Date().toISOString(), 0]);
+    } catch (e) {
+      // ignore individual action errors and continue
+      console.error('Error processing queued action', action.id, e && e.message);
+    }
+  }
+
+  if (processed > 0) saveDb(db);
+  return processed;
+}
+
+// attach to exported router for server use
+module.exports.processQueuedActions = processQueuedActions;

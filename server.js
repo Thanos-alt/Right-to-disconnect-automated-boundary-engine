@@ -26,12 +26,27 @@ app.get('*', (req, res, next) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-initDb().then(() => {
+initDb().then(async () => {
   let port = Number(PORT);
   const maxAttempts = 5;
   function tryListen(attempt) {
-    const server = app.listen(port, () => {
+    const server = app.listen(port, async () => {
       console.log(`Boundary HRMS server running on http://localhost:${port}`);
+
+      // Start background queued-action processor every 30s
+      try {
+        if (api && api.processQueuedActions) {
+          console.log('Processing any due queued actions on startup...');
+          await api.processQueuedActions();
+          setInterval(() => {
+            api.processQueuedActions().then(n => {
+              if (n > 0) console.log(`Processed ${n} queued action(s)`);
+            }).catch(() => {});
+          }, 30 * 1000);
+        }
+      } catch (e) {
+        console.error('Queued action processor failed to start:', e && e.message);
+      }
     });
     server.on('error', (err) => {
       if (err && err.code === 'EADDRINUSE' && attempt < maxAttempts) {
