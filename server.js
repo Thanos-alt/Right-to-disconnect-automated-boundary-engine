@@ -27,9 +27,25 @@ app.get('*', (req, res, next) => {
 });
 
 initDb().then(() => {
-  app.listen(PORT, () => {
-    console.log(`Boundary HRMS server running on http://localhost:${PORT}`);
-  });
+  let port = Number(PORT);
+  const maxAttempts = 5;
+  function tryListen(attempt) {
+    const server = app.listen(port, () => {
+      console.log(`Boundary HRMS server running on http://localhost:${port}`);
+    });
+    server.on('error', (err) => {
+      if (err && err.code === 'EADDRINUSE' && attempt < maxAttempts) {
+        console.warn(`Port ${port} in use, trying ${port + 1}...`);
+        port += 1;
+        setTimeout(() => tryListen(attempt + 1), 200);
+      } else {
+        console.error('Failed to start server:', err);
+        process.exit(1);
+      }
+    });
+  }
+
+  tryListen(1);
 }).catch((error) => {
   console.error('Database initialization failed:', error);
 });
