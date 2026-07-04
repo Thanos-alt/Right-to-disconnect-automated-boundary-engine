@@ -505,4 +505,54 @@ router.get('/admin/compliance', async (req, res) => {
   res.json({ queued: queued[0] || { columns: [], values: [] }, logs: logs[0] || { columns: [], values: [] }, score });
 });
 
+// Dashboard analytics endpoint (admin or employee - scoped)
+router.get('/dashboard/analytics', async (req, res) => {
+  const db = await dbPromise();
+  try {
+    // Attendance trend - last 14 days
+    const days = 14;
+    const now = new Date();
+    const labels = [];
+    const attendanceCounts = [];
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(now.getDate() - i);
+      const ds = d.toISOString().slice(0, 10);
+      labels.push(ds);
+      const stmt = db.prepare('SELECT COUNT(*) as c FROM attendance WHERE date = ?');
+      stmt.bind([ds]);
+      let cnt = 0;
+      if (stmt.step()) cnt = stmt.getAsObject().c || 0;
+      stmt.free();
+      attendanceCounts.push(cnt);
+    }
+
+    // Leave type breakdown (approved)
+    const leaves = db.exec("SELECT type, COUNT(*) as cnt FROM leaves WHERE status = 'Approved' GROUP BY type");
+    const leaveBreakdown = {};
+    if (leaves && leaves[0]) {
+      const cols = leaves[0].columns;
+      leaves[0].values.forEach(r => {
+        const obj = {};
+        cols.forEach((c, i) => obj[c] = r[i]);
+        leaveBreakdown[obj.type] = Number(obj.cnt);
+      });
+    }
+
+    // Leave balances sample (for employees)
+    let balances = [];
+    if (req.user.role === 'admin') {
+      const stmt = db.prepare('SELECT id, name, paidLeaveBalance, sickLeaveBalance FROM users ORDER BY id LIMIT 200');
+      while (stmt.step()) balances.push(stmt.getAsObject());
+      stmt.free();
+    } else {
+      balances = [{ id: req.user.id, name: req.user.name, paidLeaveBalance: req.user.paidLeaveBalance, sickLeaveBalance: req.user.sickLeaveBalance }];
+    }
+
+    res.json({ attendance: { labels, counts: attendanceCounts }, leaveBreakdown, balances });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to compute analytics' });
+  }
+});
+
 module.exports = router;
