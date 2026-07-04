@@ -8,7 +8,7 @@ const state = {
   compliance: {
     queued: [],
     logs: [],
-    score: 100
+    score: null
   },
   modalAction: null // Holds data for the pending action (approve/reject leave) when modal is open
 };
@@ -645,9 +645,11 @@ async function loadComplianceData() {
     }
 
     // 1. Update Compliance Score Circle
-    document.getElementById('complianceScoreVal').innerText = `${state.compliance.score}%`;
+    const scoreValue = state.compliance.score !== null ? `${state.compliance.score}%` : '--%';
+    const scorePercent = state.compliance.score !== null ? state.compliance.score : 0;
+    document.getElementById('complianceScoreVal').innerText = scoreValue;
     const scoreCirc = 2 * Math.PI * 50; // 314
-    const scoreOffset = scoreCirc - (state.compliance.score / 100) * scoreCirc;
+    const scoreOffset = scoreCirc - (scorePercent / 100) * scoreCirc;
     document.getElementById('complianceScoreCircle').style.strokeDashoffset = scoreOffset;
 
     // 2. Render Queued Actions Table
