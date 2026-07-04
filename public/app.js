@@ -1078,10 +1078,19 @@ async function handleImportUsers() {
     });
     const data = await res.json();
     if (res.ok) {
-      showNotification(data.message || 'Import completed');
+      // If server returned a report, show concise summary and log details
+      if (data && data.report) {
+        showNotification(`${data.message} (added: ${data.report.added}, skipped: ${data.report.skipped})`);
+        if (data.report.errors && data.report.errors.length > 0) {
+          console.warn('Import report errors:', data.report.errors.slice(0, 10));
+        }
+      } else {
+        showNotification(data.message || 'Import completed');
+      }
       await loadEmployeesDirectory();
     } else {
-      showNotification(data.error || 'Import failed', 'error');
+      const msg = data.error || (data.report ? `${data.report.added} added, ${data.report.skipped} skipped` : 'Import failed');
+      showNotification(msg, 'error');
     }
   } catch (err) {
     showNotification('Network error uploading CSV', 'error');
