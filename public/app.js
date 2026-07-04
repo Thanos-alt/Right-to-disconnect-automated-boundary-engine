@@ -443,7 +443,6 @@ async function loadDashboardData() {
       
       // Render my leaves preview
       const previewTbody = document.getElementById('myLeavesPreview');
-      previewTbody.innerHTML = '';
       
       // Filter user's leaves
       const myLeaves = state.leaves.filter(l => l.userId === state.user.id).slice(0, 5);
@@ -451,10 +450,11 @@ async function loadDashboardData() {
       if (myLeaves.length === 0) {
         previewTbody.innerHTML = `<tr><td colspan="4" class="text-center">No leaves requested yet.</td></tr>`;
       } else {
+        let html = '';
         myLeaves.forEach(leave => {
           const badgeClass = `badge badge-${leave.status.toLowerCase()}`;
           const formattedReqDate = new Date(leave.requestedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-          previewTbody.innerHTML += `
+          html += `
             <tr>
               <td>${leave.startDate} to ${leave.endDate}</td>
               <td>${leave.type}</td>
@@ -463,6 +463,7 @@ async function loadDashboardData() {
             </tr>
           `;
         });
+        previewTbody.innerHTML = html;
       }
     }
   } catch (err) {
@@ -504,11 +505,11 @@ async function loadAttendanceLogs() {
     }
 
     const tbody = document.getElementById('attendanceLogsTable');
-    tbody.innerHTML = '';
     
     if (state.attendance.length === 0) {
       tbody.innerHTML = `<tr><td colspan="5" class="text-center">No attendance logs registered.</td></tr>`;
     } else {
+      let html = '';
       state.attendance.forEach(row => {
         const empName = state.user.role === 'admin' ? (employeesMap[row.userId] || `User #${row.userId}`) : state.user.name;
         const statusBadge = row.status === 'Present' 
@@ -517,7 +518,7 @@ async function loadAttendanceLogs() {
             ? `<span class="badge badge-delivered">On Leave</span>` 
             : `<span class="badge badge-rejected">${row.status}</span>`;
             
-        tbody.innerHTML += `
+        html += `
           <tr>
             <td><strong>${empName}</strong></td>
             <td>${row.date}</td>
@@ -527,6 +528,7 @@ async function loadAttendanceLogs() {
           </tr>
         `;
       });
+      tbody.innerHTML = html;
     }
   }
 }
@@ -558,12 +560,12 @@ async function loadLeavesList() {
     }
 
     const tbody = document.getElementById('leavesTableBody');
-    tbody.innerHTML = '';
     
     // Render leaves
     if (state.leaves.length === 0) {
       tbody.innerHTML = `<tr><td colspan="6" class="text-center">No leave requests found.</td></tr>`;
     } else {
+      let html = '';
       state.leaves.forEach(row => {
         const emp = employeesMap[row.userId] || { name: `User #${row.userId}`, shiftStart: '09:00', shiftEnd: '18:00' };
         const badgeClass = `badge badge-${row.status.toLowerCase()}`;
@@ -583,7 +585,7 @@ async function loadLeavesList() {
           }
         }
 
-        tbody.innerHTML += `
+        html += `
           <tr>
             <td><strong>${emp.name}</strong></td>
             <td>${row.startDate} to ${row.endDate}</td>
@@ -594,6 +596,7 @@ async function loadLeavesList() {
           </tr>
         `;
       });
+      tbody.innerHTML = html;
     }
   }
 }
@@ -606,10 +609,10 @@ async function loadEmployeesDirectory() {
     state.employees = data.employees;
     
     const tbody = document.getElementById('employeeDirectoryTable');
-    tbody.innerHTML = '';
     
+    let html = '';
     state.employees.forEach(emp => {
-      tbody.innerHTML += `
+      html += `
         <tr>
           <td>#${emp.id}</td>
           <td><strong>${emp.name}</strong></td>
@@ -622,6 +625,7 @@ async function loadEmployeesDirectory() {
         </tr>
       `;
     });
+    tbody.innerHTML = html;
   }
 }
 
@@ -654,18 +658,18 @@ async function loadComplianceData() {
 
     // 2. Render Queued Actions Table
     const queueTbody = document.getElementById('queuedActionsTable');
-    queueTbody.innerHTML = '';
     
     if (state.compliance.queued.length === 0) {
       queueTbody.innerHTML = `<tr><td colspan="6" class="text-center">No queued actions pending.</td></tr>`;
     } else {
+      let html = '';
       state.compliance.queued.forEach(row => {
         const empName = employeesMap[row.targetUserId] || `User #${row.targetUserId}`;
         const badgeClass = `badge badge-${row.status.toLowerCase()}`;
         const actionText = row.actionType === 'approve_leave' ? 'Leave Approval' : row.actionType === 'reject_leave' ? 'Leave Rejection' : row.actionType;
         const requestedDate = new Date(row.requestedAt).toLocaleString();
         
-        queueTbody.innerHTML += `
+        html += `
           <tr>
             <td>#${row.id}</td>
             <td><strong>${empName}</strong></td>
@@ -676,22 +680,23 @@ async function loadComplianceData() {
           </tr>
         `;
       });
+      queueTbody.innerHTML = html;
     }
 
     // 3. Render Compliance Audit Logs Table
     const logTbody = document.getElementById('complianceLogsTable');
-    logTbody.innerHTML = '';
     
     if (state.compliance.logs.length === 0) {
       logTbody.innerHTML = `<tr><td colspan="5" class="text-center">No compliance activities logged yet.</td></tr>`;
     } else {
+      let html = '';
       state.compliance.logs.forEach(row => {
         const empName = employeesMap[row.userId] || `User #${row.userId}`;
         const breachBadge = row.outsideShift === 1 
           ? `<span class="badge badge-rejected">BREACHED</span>` 
           : `<span class="badge badge-approved">IN BOUNDS</span>`;
           
-        logTbody.innerHTML += `
+        html += `
           <tr>
             <td>${new Date(row.actionAt).toLocaleString()}</td>
             <td><strong>${empName}</strong></td>
@@ -701,6 +706,7 @@ async function loadComplianceData() {
           </tr>
         `;
       });
+      logTbody.innerHTML = html;
     }
 
     // 4. Render Dynamic SVG charts
