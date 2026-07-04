@@ -293,7 +293,12 @@ router.post('/admin/leaves/:id/approve', async (req, res) => {
   const bypass = req.body.emergencyBypass || false;
 
   if (outside && !bypass) {
-    const deliverAt = `${currentDate()} ${targetUser.shiftStart}`;
+    const now = new Date();
+    const shiftStartDate = new Date(`${currentDate()}T${targetUser.shiftStart}:00`);
+    if (shiftStartDate <= now) {
+      shiftStartDate.setDate(shiftStartDate.getDate() + 1);
+    }
+    const deliverAt = `${shiftStartDate.toISOString().slice(0, 10)} ${targetUser.shiftStart}`;
     db.run('INSERT INTO queued_actions (targetUserId, actionType, payload, requestedBy, requestedAt, deliverAt, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
       [targetUser.id, 'approve_leave', JSON.stringify({ leaveId }), req.user.id, new Date().toISOString(), deliverAt, 'Queued']);
     db.run('INSERT INTO compliance_logs (userId, action, actionAt, allowedAt, outsideShift) VALUES (?, ?, ?, ?, ?)',
@@ -337,7 +342,12 @@ router.post('/admin/leaves/:id/reject', async (req, res) => {
   const bypass = req.body.emergencyBypass || false;
 
   if (outside && !bypass) {
-    const deliverAt = `${currentDate()} ${targetUser.shiftStart}`;
+    const now = new Date();
+    const shiftStartDate = new Date(`${currentDate()}T${targetUser.shiftStart}:00`);
+    if (shiftStartDate <= now) {
+      shiftStartDate.setDate(shiftStartDate.getDate() + 1);
+    }
+    const deliverAt = `${shiftStartDate.toISOString().slice(0, 10)} ${targetUser.shiftStart}`;
     db.run('INSERT INTO queued_actions (targetUserId, actionType, payload, requestedBy, requestedAt, deliverAt, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
       [targetUser.id, 'reject_leave', JSON.stringify({ leaveId }), req.user.id, new Date().toISOString(), deliverAt, 'Queued']);
     db.run('INSERT INTO compliance_logs (userId, action, actionAt, allowedAt, outsideShift) VALUES (?, ?, ?, ?, ?)',
@@ -363,6 +373,42 @@ router.get('/admin/employees', async (req, res) => {
   }
   stmt.free();
   res.json({ employees });
+});
+
+router.get('/admin/users', async (req, res) => {
+  // Alias for admin employee listing
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
+  const db = await dbPromise();
+  const stmt = db.prepare('SELECT id, name, email, role, shiftStart, shiftEnd, paidLeaveBalance, sickLeaveBalance FROM users ORDER BY id ASC');
+  const employees = [];
+  while (stmt.step()) {
+    employees.push(stmt.getAsObject());
+  }
+  stmt.free();
+  res.json({ users: employees });
+});
+
+router.get('/users', async (req, res) => {
+  // Admin-only alias for users list
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
+  const db = await dbPromise();
+  const stmt = db.prepare('SELECT id, name, email, role, shiftStart, shiftEnd, paidLeaveBalance, sickLeaveBalance FROM users ORDER BY id ASC');
+  const users = [];
+  while (stmt.step()) {
+    users.push(stmt.getAsObject());
+  }
+  stmt.free();
+  res.json({ users });
+});
+
+router.post('/admin/queued-actions/process', async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const processed = await processQueuedActions();
+    res.json({ message: `Processed ${processed} queued action(s)` });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to process queued actions' });
+  }
 });
 
 // CSV export endpoints
@@ -530,7 +576,12 @@ router.get('/admin/compliance', async (req, res) => {
   const queued = db.exec('SELECT * FROM queued_actions ORDER BY requestedAt DESC');
   const logs = db.exec('SELECT * FROM compliance_logs ORDER BY actionAt DESC');
   const total = logs[0] ? logs[0].values.length : 0;
-  const outside = logs[0] ? logs[0].values.filter(row => row[4] === 1).length : 0;
+  const outside = logs[0]
+    ? logs[0].values.filter(row => {
+      const outsideIdx = logs[0].columns.indexOf('outsideShift');
+      return outsideIdx >= 0 && row[outsideIdx] === 1;
+    }).length
+    : 0;
   const score = total ? Math.round(((total - outside) / total) * 100) : 100;
   res.json({ queued: queued[0] || { columns: [], values: [] }, logs: logs[0] || { columns: [], values: [] }, score });
 });
@@ -549,8 +600,13 @@ router.get('/dashboard/analytics', async (req, res) => {
       d.setDate(now.getDate() - i);
       const ds = d.toISOString().slice(0, 10);
       labels.push(ds);
-      const stmt = db.prepare('SELECT COUNT(*) as c FROM attendance WHERE date = ?');
-      stmt.bind([ds]);
+      const stmt = db.prepare(
+        req.user.role === 'admin'
+          ? 'SELECT COUNT(*) as c FROM attendance WHERE date = ?'
+          : 'SELECT COUNT(*) as c FROM attendance WHERE date = ? AND userId = ?'
+      );
+      const params = req.user.role === 'admin' ? [ds] : [ds, req.user.id];
+      stmt.bind(params);
       let cnt = 0;
       if (stmt.step()) cnt = stmt.getAsObject().c || 0;
       stmt.free();
@@ -558,15 +614,25 @@ router.get('/dashboard/analytics', async (req, res) => {
     }
 
     // Leave type breakdown (approved)
-    const leaves = db.exec("SELECT type, COUNT(*) as cnt FROM leaves WHERE status = 'Approved' GROUP BY type");
-    const leaveBreakdown = {};
-    if (leaves && leaves[0]) {
-      const cols = leaves[0].columns;
-      leaves[0].values.forEach(r => {
-        const obj = {};
-        cols.forEach((c, i) => obj[c] = r[i]);
-        leaveBreakdown[obj.type] = Number(obj.cnt);
-      });
+    let leaveBreakdown = {};
+    if (req.user.role === 'admin') {
+      const leaves = db.exec("SELECT type, COUNT(*) as cnt FROM leaves WHERE status = 'Approved' GROUP BY type");
+      if (leaves && leaves[0]) {
+        const cols = leaves[0].columns;
+        leaves[0].values.forEach(r => {
+          const obj = {};
+          cols.forEach((c, i) => obj[c] = r[i]);
+          leaveBreakdown[obj.type] = Number(obj.cnt);
+        });
+      }
+    } else {
+      const stmt = db.prepare("SELECT type, COUNT(*) as cnt FROM leaves WHERE status = 'Approved' AND userId = ? GROUP BY type");
+      stmt.bind([req.user.id]);
+      while (stmt.step()) {
+        const row = stmt.getAsObject();
+        leaveBreakdown[row.type] = Number(row.cnt);
+      }
+      stmt.free();
     }
 
     // Leave balances sample (for employees)

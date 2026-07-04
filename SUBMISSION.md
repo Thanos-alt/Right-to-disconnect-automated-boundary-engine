@@ -24,7 +24,7 @@ node server.js
 
 Key endpoints useful for evaluation
 
-- `POST /api/login` — body `{ email, password }` (admin: admin@boundaryhrms.com / password: adminpass)
+- `POST /api/login` — body `{ email, password }` (admin: admin@boundaryhrms.com / password: admin123)
 - `GET /api/dashboard/analytics` — returns attendance trend and leave balances
 - `GET /api/admin/export/employees` — download employees CSV (admin only)
 - `POST /api/admin/import/users` — body `{ csv: "<CSV text>" }` to import users (admin only)

@@ -15,7 +15,7 @@ const state = {
 
 // SQL.js response parser
 function parseSqlRows(resultArray) {
-  if (!resultArray || resultArray.length === 0 || !resultArray[0].columns || !resultArray[0].values) {
+  if (!resultArray || !resultArray[0] || !resultArray[0].columns || !resultArray[0].values) {
     return [];
   }
   const columns = resultArray[0].columns;
@@ -27,6 +27,16 @@ function parseSqlRows(resultArray) {
     return obj;
   });
 }
+
+// Support file:// preview while using the local app server at 4002
+const API_BASE = window.location.protocol === 'file:' ? 'http://localhost:4002' : '';
+const originalFetch = window.fetch.bind(window);
+window.fetch = (resource, init) => {
+  if (typeof resource === 'string' && resource.startsWith('/api')) {
+    return originalFetch(`${API_BASE}${resource}`, init);
+  }
+  return originalFetch(resource, init);
+};
 
 function parseSqlTable(table) {
   if (!table || !table.columns || !table.values) {
@@ -528,14 +538,23 @@ async function loadLeavesList() {
     const data = await res.json();
     state.leaves = parseSqlRows(data.leaves);
     
-    // Fetch employees map
+    // Fetch employees map if admin, otherwise use the current user
     let employeesMap = {};
-    const empRes = await fetch('/api/admin/employees');
-    if (empRes.ok) {
-      const empData = await empRes.json();
-      empData.employees.forEach(emp => {
-        employeesMap[emp.id] = emp;
-      });
+    if (state.user.role === 'admin') {
+      const empRes = await fetch('/api/admin/employees');
+      if (empRes.ok) {
+        const empData = await empRes.json();
+        empData.employees.forEach(emp => {
+          employeesMap[emp.id] = emp;
+        });
+      }
+    } else {
+      employeesMap[state.user.id] = {
+        id: state.user.id,
+        name: state.user.name,
+        shiftStart: state.user.shiftStart,
+        shiftEnd: state.user.shiftEnd
+      };
     }
 
     const tbody = document.getElementById('leavesTableBody');
@@ -683,6 +702,13 @@ async function loadComplianceData() {
     }
 
     // 4. Render Dynamic SVG charts
+    if (!state.leaves || state.leaves.length === 0) {
+      const leavesRes = await fetch('/api/leaves');
+      if (leavesRes.ok) {
+        const leavesData = await leavesRes.json();
+        state.leaves = parseSqlRows(leavesData.leaves);
+      }
+    }
     renderSVGCharts(state.compliance.logs, state.leaves);
   }
 }
