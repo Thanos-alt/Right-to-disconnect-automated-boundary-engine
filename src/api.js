@@ -409,31 +409,55 @@ router.post('/admin/import/users', async (req, res) => {
   if (!csv) return res.status(400).json({ error: 'CSV content required in body as { csv: "..." }' });
   const rows = csvUtils.parseSimpleCsv(csv);
   const db = await dbPromise();
-  let added = 0;
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const salt = bcrypt.genSaltSync(10);
-  for (const r of rows) {
-    const name = r.name || r.fullname || r.username || 'Unnamed';
-    const email = (r.email || '').trim();
-    const role = (r.role || 'employee').trim();
+  const report = { added: 0, skipped: 0, errors: [] };
+  const maxRows = 2000;
+  if (!Array.isArray(rows) || rows.length === 0) return res.status(400).json({ error: 'No rows parsed from CSV' });
+  if (rows.length > maxRows) return res.status(400).json({ error: `CSV too large; max ${maxRows} rows allowed` });
+
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    const lineNo = i + 1;
+    const name = (r.name || r.fullname || r.username || '').trim() || `User${Date.now()}${i}`;
+    const email = (r.email || '').trim().toLowerCase();
+    const role = (r.role || 'employee').trim().toLowerCase();
     const rawPassword = r.password && r.password.trim() ? r.password.trim() : 'employee123';
-    if (!email) continue;
+
+    if (!email || !emailRegex.test(email)) {
+      report.skipped++;
+      report.errors.push({ line: lineNo, reason: 'Invalid or missing email', row: r });
+      continue;
+    }
+    if (!['admin', 'employee'].includes(role)) {
+      report.skipped++;
+      report.errors.push({ line: lineNo, reason: `Invalid role '${role}'`, row: r });
+      continue;
+    }
+
     const existingStmt = db.prepare('SELECT id FROM users WHERE email = ?');
     existingStmt.bind([email]);
     let exists = false;
     if (existingStmt.step()) exists = true;
     existingStmt.free();
-    if (exists) continue;
+    if (exists) {
+      report.skipped++;
+      report.errors.push({ line: lineNo, reason: 'Email already exists', email });
+      continue;
+    }
+
     const hashed = bcrypt.hashSync(rawPassword, salt);
     try {
       db.run('INSERT INTO users (name, email, password, role, shiftStart, shiftEnd, paidLeaveBalance, sickLeaveBalance) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        [name, email, hashed, role === 'admin' ? 'admin' : 'employee', '09:00', '18:00', Number(r.paidLeaveBalance || 12), Number(r.sickLeaveBalance || 8)]);
-      added++;
+        [name, email, hashed, role === 'admin' ? 'admin' : 'employee', String(r.shiftStart || '09:00'), String(r.shiftEnd || '18:00'), Number(r.paidLeaveBalance || 12), Number(r.sickLeaveBalance || 8)]);
+      report.added++;
     } catch (e) {
-      // ignore insert error
+      report.skipped++;
+      report.errors.push({ line: lineNo, reason: 'Database insert error', error: e && e.message });
     }
   }
-  saveDb(db);
-  res.json({ message: `Imported ${added} users` });
+  if (report.added > 0) saveDb(db);
+  res.json({ message: `Imported ${report.added} users, skipped ${report.skipped}`, report });
 });
 
 router.post('/admin/employees/update', async (req, res) => {
